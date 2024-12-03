@@ -14,10 +14,11 @@ def is_safe(nums):
         return False
 
     for index in range(1, len(nums)):
-        difference_last = nums[index] - nums[index-1]
+        difference_last = nums[index] - nums[index - 1]
         if abs(difference_last) < 1 or abs(difference_last) > 3:
             return False
     return True
+
 
 for line in lines:
     nums = list(map(int, line.split(" ")))
