@@ -32,6 +32,38 @@ def pretty_print_fences(fences: set):
         print()
 
 
+def get_num_sides_from_fences(fences: set):
+
+    vertical_fences = set()
+    horizontal_fences = set()
+    for fence in fences:
+        if fence[0] % 1 != 0:
+            vertical_fences.add(fence)
+        else:
+            horizontal_fences.add(fence)
+    # sort them so we can't possibly consider them incorrectly?
+    vertical_fences = sorted(list(vertical_fences))
+    horizontal_fences = sorted(list(horizontal_fences))
+    visited_vertical = set()
+    num_sides = 0
+    for vertical_fence in vertical_fences:
+        # get top and bottom, if neither are in visited, add a side
+        top = (vertical_fence[0], vertical_fence[1] - 1)
+        bottom = (vertical_fence[0], vertical_fence[1] + 1)
+        if top not in visited_vertical and bottom not in visited_vertical:
+            num_sides += 1
+        visited_vertical.add(vertical_fence)
+    visited_horizontal = set()
+    for horizontal_fence in horizontal_fences:
+        # get left and right, if neither are in visited, add a side
+        left = (horizontal_fence[0] - 1, horizontal_fence[1])
+        right = (horizontal_fence[0] + 1, horizontal_fence[1])
+        if left not in visited_horizontal and right not in visited_horizontal:
+            num_sides += 1
+        visited_horizontal.add(horizontal_fence)
+    return num_sides
+
+
 regions = []
 for y, line in enumerate(lines):
     for x, char in enumerate(line):
@@ -64,28 +96,13 @@ for y, line in enumerate(lines):
                         print(f"Adding fence to the {direciton} of {new_x, new_y}")
                         fences.add(fence)
                         # top or bottom have a fence, then this is not a new side, add to side counter
-                        if not (
-                            (fence_x, iy + 1) in fences or (fence_x, iy - 1) in fences
-                        ):
-                            print(
-                                f"Adding side {num_sides} to {'left' if dx == -1 else 'right'} of {ix}, {iy} "
-                            )
-
-                            num_sides += 1
                 else:  # out of bounds, add a fence too:
                     fence_x = new_x + dx / 4
                     fence = (fence_x, iy)
                     print(f"Adding fence to the {direciton} of {new_x, new_y}")
 
                     fences.add(fence)
-                    if not (
-                        (fence_x, fence[1] + 1) in fences
-                        or (fence_x, fence[1] - 1) in fences
-                    ):
-                        print(
-                            f"Adding side {num_sides} to {'left' if dx == -1 else 'right'} of {ix}, {iy} "
-                        )
-                        num_sides += 1
+
             # up and down checks:
             for dx, dy in [(0, 1), (0, -1)]:
                 direciton = "up" if dy == -1 else "down"
@@ -101,29 +118,13 @@ for y, line in enumerate(lines):
                         fence = (ix, fence_y)
                         fences.add(fence)
                         print(f"Adding fence to the {direciton} of {new_x, new_y}")
-                        if not (
-                            (fence[0] + 1, fence_y) in fences
-                            or (fence[0] - 1, fence_y) in fences
-                        ):
-                            print(
-                                f"Adding side {num_sides} to {'top' if dy == -1 else 'bottom'} of {ix}, {iy} "
-                            )
-                            num_sides += 1
                 else:
                     fence_y = new_y + dy / 4
                     fence = (ix, fence_y)
                     print(f"Adding fence to the {direciton} of {new_x, new_y}")
 
                     fences.add(fence)
-                    if not (
-                        (fence[0] + 1, fence_y) in fences
-                        or (fence[0] - 1, fence_y) in fences
-                    ):
-                        print(
-                            f"Adding side {num_sides} to {'top' if dy == -1 else 'bottom'} of {ix}, {iy} "
-                        )
-
-                        num_sides += 1
+        num_sides = get_num_sides_from_fences(fences)
         regions.append(Region(char, area, num_sides, initial_x, initial_y))
 
 total = 0
