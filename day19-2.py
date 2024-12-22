@@ -30,14 +30,13 @@ def count_ways_to_construct(pattern, substrings):
             # Check if the substring matches the beginning of the remaining string
             if remaining.startswith(sub):
                 # Recur with the rest of the string and add the result to total_ways
-                total_ways += helper(remaining[len(sub):])
+                total_ways += helper(remaining[len(sub) :])
 
         # Store the result in memo and return it
         memo[remaining] = total_ways
         return total_ways
 
     return helper(pattern)
-
 
 
 possible = 0

@@ -55,6 +55,7 @@ def build_base_graph(map_, wall_allow=None):
                 graph.add_edge((x, y - 1), key, 1)
     return graph
 
+
 base_graph = build_base_graph(map)
 
 main_path = find_path(base_graph, start, end)
@@ -65,6 +66,7 @@ path = main_path.nodes
 
 print(max_time)
 
+
 def street_distance(a, b):
     return abs(a[0] - b[0]) + abs(a[1] - b[1])
 
@@ -72,10 +74,10 @@ def street_distance(a, b):
 good_shortcuts = 0
 time_save_frequency = defaultdict(int)
 for i in range(len(path)):
-    for j in range(i+1, len(path)):
+    for j in range(i + 1, len(path)):
         distance = street_distance(path[i], path[j])
         if distance <= 20:
-            time_save = (j-i) - distance
+            time_save = (j - i) - distance
             if time_save >= 100:
                 good_shortcuts += 1
                 time_save_frequency[time_save] += 1
@@ -84,4 +86,3 @@ for i in range(len(path)):
 for key in sorted(time_save_frequency):
     print(key, time_save_frequency[key])
 print(good_shortcuts)
-

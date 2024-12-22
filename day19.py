@@ -15,10 +15,12 @@ def can_construct(pattern, substrings):
             return True
         for sub in substrings:
             if remaining.startswith(sub):
-                if helper(remaining[len(sub):]):
+                if helper(remaining[len(sub) :]):
                     return True
         return False
+
     return helper(pattern)
+
 
 possible = 0
 for line in messages:

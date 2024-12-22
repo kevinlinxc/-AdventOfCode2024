@@ -76,8 +76,8 @@ for wall in tqdm(walls):
     # map_copy[(wall[0] + delta[0], wall[1] + delta[1])] = "."
 
     # if wall == (8, 1) and delta == (0, 1):
-        # print("here")
-        # pretty_print_map(map_copy, wall, (wall[0] + delta[0], wall[1] + delta[1]))
+    # print("here")
+    # pretty_print_map(map_copy, wall, (wall[0] + delta[0], wall[1] + delta[1]))
     path = find_shortest_path(map_copy)
     time_save = max_time - path.total_cost
     # print(f"Time save: {time_save}")
