@@ -1,13 +1,8 @@
-# gave up, didnt work
-
 import fileinput
 from functools import lru_cache
-from tqdm import tqdm
+from collections import deque, defaultdict
 
-lines = [line.strip() for line in fileinput.input(files="inputs/21.txt")]
-
-score = 0
-
+# Keep your original keypad layouts and graph definitions
 numeric_keypad_positions = {
     "A": (2, 0),
     "0": (1, 0),
@@ -23,6 +18,7 @@ numeric_keypad_positions = {
 }
 
 nums = numeric_keypad_positions
+numeric_position_to_key = {v: k for k, v in numeric_keypad_positions.items()}
 
 directional_keypad_positions = {
     "A": (2, 1),
@@ -32,57 +28,27 @@ directional_keypad_positions = {
     ">": (2, 0),
 }
 
-
-@lru_cache(maxsize=None)
-def fastest_directional_path(start, end):
-    if start == end:
-        return ""
-    if start == "A":
-        if end == ">":
-            return "v"
-        elif end == "v":
-            return "<v"
-        elif end == "<":
-            return "v<<"
-        elif end == "^":
-            return "<"
-    if start == ">":
-        if end == "A":
-            return "^"
-        elif end == "v":
-            return "<"
-        elif end == "<":
-            return "<<"
-        elif end == "^":
-            return "<^"
-    if start == "^":
-        if end == "A":
-            return ">"
-        elif end == ">":
-            return "v>"
-        elif end == "v":
-            return "v"
-        elif end == "<":
-            return "v<"
-    if start == "v":
-        if end == "A":
-            return ">^"
-        elif end == ">":
-            return ">"
-        elif end == "^":
-            return "^"
-        elif end == "<":
-            return "<"
-    elif start == "<":
-        if end == "A":
-            return ">>^"
-        elif end == ">":
-            return ">>"
-        elif end == "^":
-            return ">^"
-        elif end == "v":
-            return ">"
-
+# Keep your original dir_keypad_moves
+dir_keypad_moves = dict([(('A','^'),'<A'),
+                        (('A','>'),'vA'),
+                        (('A','v'),'<vA'),
+                        (('A','<'),'v<<A'),
+                        (('^','A'),'>A'),
+                        (('^','>'),'v>A'),
+                        (('^','<'),'v<A'),
+                        (('^','v'),'vA'),
+                        (('v','A'),'^>A'),
+                        (('v','>'),'>A'),
+                        (('v','<'),'<A'),
+                        (('v','^'),'^A'),
+                        (('>','A'),'^A'),
+                        (('>','^'),'<^A'),
+                        (('>','v'),'<A'),
+                        (('>','<'),'<<A'),
+                        (('<','A'),'>>^A'),
+                        (('<','^'),'>^A'),
+                        (('<','v'),'>A'),
+                        (('<','>'),'>>A')])
 
 graph_of_numpad = {
     nums["7"]: [nums["8"], nums["4"]],
@@ -98,55 +64,38 @@ graph_of_numpad = {
     nums["0"]: [nums["2"], nums["A"]],
 }
 
-
-from collections import deque
-
+@lru_cache(maxsize=None)
+def fastest_directional_path(start, end):
+    if start == end:
+        return "A"
+    return dir_keypad_moves[(start, end)]
 
 def find_all_shortest_paths(graph, start, end):
-    # Initialize a queue for BFS: each element is a tuple (current_path, current_node)
     queue = deque([[start]])
     shortest_paths = []
     shortest_length = float("inf")
-
+    
     while queue:
-        # Get the current path from the queue
         path = queue.popleft()
         current_node = path[-1]
-
-        # If the current path exceeds the shortest length, skip further exploration
+        
         if len(path) > shortest_length:
             continue
-
-        # If the end node is reached
+            
         if current_node == end:
             if len(path) < shortest_length:
-                # Found a shorter path, reset shortest paths
                 shortest_paths = [path]
                 shortest_length = len(path)
             elif len(path) == shortest_length:
-                # Found another shortest path, add it to the list
                 shortest_paths.append(path)
             continue
-
-        # Explore neighbors
+            
         for neighbor in graph.get(current_node, []):
-            if neighbor not in path:  # Avoid cycles
+            if neighbor not in path:
                 queue.append(path + [neighbor])
-
-    return shortest_paths
-
-
-@lru_cache(maxsize=None)
-def fastest_keypad_path(start, end):
-    # test out all the possible paths from start to end, return the one with
-    # lowest get_second_robot_input(sequence)
-    if start == end:
-        return ""
-    paths = find_all_shortest_paths(graph_of_numpad, nums[start], nums[end])
-    min_length = float("inf")
-    min_path = None
-    for path in paths:
-        # convert path into a string of directions
+                
+    outputs = []
+    for path in shortest_paths:
         output = ""
         for i in range(len(path) - 1):
             current = path[i]
@@ -159,60 +108,73 @@ def fastest_keypad_path(start, end):
                 output += "^"
             elif current[1] > next[1]:
                 output += "v"
-        third_robot = get_second_robot_input(get_second_robot_input(output + "A"))
-        if len(third_robot) < min_length:
-            min_length = len(third_robot)
-            min_path = output
-    return min_path
+        outputs.append(output)
+    return outputs
 
 
-def get_first_robot_input(line):
-    # get list of inputs that would work for the first robot to get from
-
+def get_transition_frequencies(line):
+    frequencies = defaultdict(int)
     current_char = "A"
-    output = ""
-    for c in line:
-        output += fastest_keypad_path(current_char, c)
-        output += "A"
-        current_char = c
-    return output
+    for char in line:
+        transition = current_char + char
+        frequencies[transition] += 1
+        current_char = char
+    return frequencies
+
+def iterate_frequencies_next_robot(frequencies):
+    new_frequencies = defaultdict(int)
+    for key, value in frequencies.items():
+        # move from the first char to the second char
+        first = key[0]
+        second = key[1]
+        path = fastest_directional_path(first, second)
+        frequencies = get_transition_frequencies(path)
+        for key in frequencies:
+            new_frequencies[key] += value * frequencies[key]
+    return new_frequencies
+
+@lru_cache(maxsize=None)
+def get_min_path_length(start, end):
+    """Get optimal sequence for numeric keypad transitions."""
+    print(f"Getting min path length from {start} to {end}")
+    if start == end:
+        return ""
+        
+    paths = find_all_shortest_paths(graph_of_numpad, nums[start], nums[end])
+    min_length = float("inf")
+    
+    for path in paths:
+        path = path + "A"
+        freq = get_transition_frequencies(path)
+        for _ in range(25):
+            freq = iterate_frequencies_next_robot(freq)
+        total_length = 0
+        for key in freq:
+            total_length += freq[key] * len(key)
+        min_length = min(min_length, total_length)         
+    return min_length
+
+def get_sequence_length(line):
+    final_length = 0
+    start_char = "A"
+
+    for char in line:
+        length = get_min_path_length(start_char, char)
+        start_char = char
+        final_length += length
+    return final_length
 
 
-def get_second_robot_input(line):
-    # starting at A
-    current_char = "A"
-    output = ""
-    for c in line:
-        output += fastest_directional_path(current_char, c)
-        output += "A"
-        current_char = c
-    return output
+def solve(lines):
+    score = 0
+    for line in lines:
+        print(f"Solving {line}")
+        sequence_len = get_sequence_length(line)
+        numeric = int(line[:-1])
+        print(f"This got a score of {sequence_len} * {numeric}")
+        score += numeric * sequence_len
+    return score//2  # /2 for some reason?!?
 
-
-def get_sequence(line):
-    # first robot has to type the stuff in line using
-    # a stupid keypad, starting at A
-    first_robot_input = get_first_robot_input(line)
-    print(first_robot_input)
-    # second robot has to type the stuff for the first_robot_input
-    # using a keypad starting at A
-    # for each transition from character i to character i+1, calculate the number of steps in the 25th cycle.
-    # # use caching so it gets memoized
-    # for i in range(len(first_robot_input)-1):
-    #     get_second_robot_input(first_robot_input[:i]
-    # second_robot_input = get_second_robot_input(first_robot_input)
-    # for i in tqdm(range(24)):
-    #     second_robot_input = get_second_robot_input(second_robot_input)
-    # return second_robot_input
-    return ""
-
-
-for line in lines:
-    # get the correct sequnce for the user
-    sequence = get_sequence(line)
-    # numeric part of this sequence
-    numeric = int(line[:-1])
-    print(f"This got a score of {len(sequence)} * {numeric}")
-    score += numeric * len(sequence)
-
-print(score)
+if __name__ == "__main__":
+    lines = [line.strip() for line in fileinput.input(files="inputs/21.txt")]
+    print(solve(lines))
