@@ -150,7 +150,7 @@ def get_min_path_length(start, end):
             freq = iterate_frequencies_next_robot(freq)
         total_length = 0
         for key in freq:
-            total_length += freq[key] * len(key)
+            total_length += freq[key]
         min_length = min(min_length, total_length)         
     return min_length
 
@@ -173,7 +173,7 @@ def solve(lines):
         numeric = int(line[:-1])
         print(f"This got a score of {sequence_len} * {numeric}")
         score += numeric * sequence_len
-    return score//2  # /2 for some reason?!?
+    return score  # /2 for some reason?!?
 
 if __name__ == "__main__":
     lines = [line.strip() for line in fileinput.input(files="inputs/21.txt")]
