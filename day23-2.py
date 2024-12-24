@@ -82,7 +82,7 @@ max_connected = 0
 password = ""
 for computer in all_computers:
     connection_count = len(connections[computer])
-    for combination_size in range(connection_count, 1, -1):
+    for combination_size in range(connection_count + 1, 1, -1):
         # import pdb; pdb.set_trace()
         all_computers = connections[computer].union({computer})
         # print(f"Checking {computer} with {all_computers}, combination size: {combination_size}")
