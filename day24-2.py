@@ -2,17 +2,16 @@ import fileinput
 from tqdm import tqdm
 from copy import deepcopy
 from collections import defaultdict
-
+import graphviz
 lines = [line.strip() for line in fileinput.input(files="inputs/24.txt")]
-
-
+dot = graphviz.Digraph(comment="AOC 2024 Day 24", engine="dot")
 cache = {}
 gates = []
 gates_now = False
 related_gates = defaultdict(list)
+
 class Gate:
     def __init__(self, gate_str):
-        print(gate_str)
         if "AND" in gate_str:
             self.op = "AND"
         elif "XOR" in gate_str:
@@ -33,7 +32,6 @@ class Gate:
         return self.gate_1 in cache_ and self.gate_2 in cache_
     
     def evaluate(self, cache_):
-        # print(f"Evaluating  {self.output} = {cache_[self.gate_1]} {self.op} {cache_[self.gate_2]}", end="")
         if self.op == "AND":
             cache[self.output] = cache_[self.gate_1] & cache_[self.gate_2]
         elif self.op == "XOR":
@@ -41,6 +39,7 @@ class Gate:
         elif self.op == "OR":
             cache[self.output] = cache_[self.gate_1] | cache_[self.gate_2]
 
+# Parse input
 gates_map = {}
 all_gates = set()
 for line in lines:
@@ -54,12 +53,96 @@ for line in lines:
         all_gates.add(new_gate.output)
         related_gates[new_gate.gate_1].append(new_gate)
         related_gates[new_gate.gate_2].append(new_gate)
-
     else:
         name, value = line.split(": ")
         cache[name] = int(value)
 
+def find_gate(input1, input2, operation):
+    for gate in gates:
+        if gate.gate_1 in [input1, input2] and gate.gate_2 in [input1, input2] and gate.op == operation:
+            return gate
+    return None
 
+def get_gates_using_output(output):
+    return [gate for gate in gates if gate.gate_1 == output or gate.gate_2 == output]
+
+
+
+# iterate through the gates and give them apt names
+aliases = {"rfg": "carry0"}
+for i in range(1, 45):
+    x = f"x{str(i).zfill(2)}"
+    y = f"y{str(i).zfill(2)}"
+    z = f"z{str(i).zfill(2)}"
+    xxory1 = find_gate(x, y, "XOR")
+    if xxory1 is None:
+        print("sus: no xor for ", x, y)
+    else:
+        xor1output = xxory1.output
+        aliases[xor1output] = f"xxory_{i}"
+        # should be input to an and gate
+        for gate in gates:
+            if xor1output in [gate.gate_1, gate.gate_2]:
+                if gate.op == "AND":
+                    xorandcarry1 = gate.output
+                    aliases[xorandcarry1] = f"xorandcarry_{i}"
+        # should be input to an xor gate too
+        for gate in gates:
+            if xor1output in [gate.gate_1, gate.gate_2]:
+                if gate.op == "XOR":
+                    xor2output = gate.output
+                    aliases[xor2output] = f"sum_{i}"
+
+    xandy = find_gate(x, y, "AND")
+    if xandy is None:
+        print("sus: no and for ", x, y)
+    else:
+        andoutput1 = xandy.output
+        aliases[andoutput1] = f"xandy_{i}"
+    
+    if xorandcarry1 and andoutput1:
+        # should be input to an or gate for the next carry
+        carry_gate = find_gate(xorandcarry1, andoutput1, "OR")
+        if carry_gate is None:
+            print("sus: no or for ", xorandcarry1, andoutput1)
+        else:
+            oroutput1 = carry_gate.output
+            aliases[oroutput1] = f"carry_or_{i}"
+print(aliases)
+print(len(aliases))
+for key, value in aliases.items():
+    value = value + "(" + key + ")"
+    aliases[key] = value
+
+for gate in gates:
+    gate_1_name = aliases.get(gate.gate_1, gate.gate_1)
+    gate_2_name = aliases.get(gate.gate_2, gate.gate_2)
+    output_name = aliases.get(gate.output, gate.output)
+    dot.node(gate_1_name, gate_1_name)
+    dot.node(gate_2_name, gate_2_name)
+    dot.node(output_name, output_name)
+    dot.edge(gate_1_name, output_name)
+    dot.edge(gate_2_name, output_name)
+
+dot.render("gates.gv", view=True)
+
+# found these manually from the graphviz output
+gates_to_swap = {"fdv": "dbp",
+                 "dbp": "fdv",
+                 "z15": "ckj",
+                    "ckj": "z15",
+                    "kdf": "z23",
+                    "z23": "kdf",
+                    "z39": "rpp",
+                    "rpp": "z39"
+                 }
+
+for gate in gates:
+    if gate.output in gates_to_swap:
+        gate.output = gates_to_swap[gate.output]
+        print(f"Swapping {gate.output}")
+
+print("Evaluating")
 
 def get_dec_number(cache_, letter="z"):
     output = ""
@@ -69,109 +152,22 @@ def get_dec_number(cache_, letter="z"):
 
     return int(output, 2)
 
+def evaluate(cache_, gates_):
+    while len(gates_) > 0:
+        can_evaluate = []
+        for gate in gates_:
+            if gate.can_evaluate(cache_):
+                can_evaluate.append(gate)
+        if len(can_evaluate) == 0:
+            return None
+        for gate in can_evaluate:
+            gate.evaluate(cache_)
+            gates_.remove(gate)
+    return get_dec_number(cache_, "z")
 
+finalz = evaluate(cache, gates)
+print(f"Final z after swaps: {finalz}")
+expected = get_dec_number(cache,"x") + get_dec_number(cache, "y")
+assert finalz == expected, f"Expected {expected}, got {finalz}"
 
-# print(gates)
-# print(cache)
-# print(get_dec_number(cache, "x"))
-# print(get_dec_number(cache, "y"))
-# expected = get_dec_number(cache,"x") + get_dec_number(cache, "y")
-# print(f"Expected = {expected}")
-
-
-
-# half adder for 0
-# there should be x0 xor y0 = s0 and x0 and y0 = z1
-assert gates_map["z00"].gate_1 == "x00" and gates_map["z00"].gate_2 == "y00" and gates_map["z00"].op == "XOR"
-# carry one should come from x0 and y0 = z1
-# carry_bit = related_gates['x00'][0].output
-
-#carry_bit_0 and  a1 xor b1 should get xord to get s1
-print(gates_map["z01"])
-a1xorb1 = related_gates['x01'][0].output
-# assert gates_map["z01"].gate_1 == carry_bit_0 and gates_map["z01"].gate_2 == "x01" and gates_map["z01"].op == "XOR"
-#half adder seems ok
-
-def find_gate(input1, input2, operation):
-    for gate in gates:
-        if gate.gate_1 in [input1, input2 ]and gate.gate_2 in [input1, input2] and gate.op == operation:
-            return gate
-            
-    return None
-
-sus_gates = set()
-for i in range(1, 44):
-
-
-    x = "x" + f"{str(i).zfill(2)}"
-    y = "y" + f"{str(i).zfill(2)}"
-    z = "z" + f"{str(i).zfill(2)}"
-    x_next = "x" + f"{str(i+1).zfill(2)}"
-    y_next = "y" + f"{str(i+1).zfill(2)}"
-    z_next = "z" + f"{str(i+1).zfill(2)}"
-    i_top_bit = None
-    # find z gate with xor
-    cand1 = None
-    cand2 = None
-    for gate in gates:
-        if gate.output == z and gate.op == "XOR":
-            # print(f"{z} comes from {gate}")
-            cand_1 = gate.gate_1
-            cand_2 = gate.gate_2
-    
-    # one of cand_1, cand_2 should come from xi xor yi
-    xor1i = find_gate(x, y, "XOR")
-    # find gate that takes xor1 as input and is xor, its output maybe is wrong
-    for gate in gates:
-        if (xor1i.output in [gate.gate_1, gate.gate_2]) and gate.op == "XOR":
-            if gate.output != z:
-                print(f"Gate {gate} takes {xor1i.output} as input but doesn't output z, output {gate.output} is sus")
-                if z in ["z06","z15","z23","z39"]:
-                    print("Ignoring because the z is probably wrong")
-                else:
-                    sus_gates.add(gate.output)
-
-    if xor1i.output not in [cand_1, cand_2]:
-        print(f"Gate {z} is sus because it doesn't have the right XOR gate: {xor1i} not in {[cand1, cand2]}!")
-        sus_gates.add(z)
-    
-    # find the gate thats x and y
-    xandy = find_gate(x, y, "AND").output
-    # this should be used only for the carry out gate
-    for gate in gates:
-        if gate.gate_1 == xandy or gate.gate_2 == xandy:
-            next_carry_bit = gate.output
-    # next carry bit should be used in the next gate's sum
-    next_xor1 = find_gate(x_next, y_next, "XOR").output
-    next_other_xor2 = find_gate(next_carry_bit, next_xor1, "XOR")
-    if not next_other_xor2 or next_other_xor2.output != z_next:
-        print(f"Gate {next_carry_bit} is sus because its a carry bit and doesn't lead into {z_next}!")
-        if z_next in ["z06","z15","z23","z39"]:
-            print("Ignoring because the z is probably wrong")
-        else:
-            sus_gates.add(next_carry_bit)
-    
-
-
-    # output_gate_z = gates_map[z]
-    # if carry_bit not in [output_gate_z.gate_1, output_gate_z.gate_2]:
-    #     print(f"Gate {output_gate_z} is sus because it doesn't have the last carry bit: {carry_bit}!")
-
-    # i_top_bit = find_gate(x, y, "XOR").output
-    # i_middle_bit = find_gate(x, y, "AND").output
-    # # i_bot_bit = find_gate(i_top_bit, carry_bit, "AND").output
-    # print(f"Index {i} has intermediate bits {i_top_bit}, {i_middle_bit}, ")
-    
-
-    # # find the gates connected to x and y
-    # # see if the don't  match the ones connected to z
-    # x_gates = [gate for gate in gates if gate.gate_1 == x or gate.gate_2 == x]
-    # y_gates = [gate for gate in gates if gate.gate_1 == y or gate.gate_2 == y]
-    # z_gates = [gate for gate in gates if gate.output == z]
-    # print(x_gates, y_gates, z_gates)
-    # input()
-
-print(",".join(sorted(list(sus_gates))))
-    
-
-
+print(",".join(sorted(list(gates_to_swap.keys()))))
